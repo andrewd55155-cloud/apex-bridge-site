@@ -68,7 +68,12 @@ def init_db():
 
 init_db()
 
-AUTH_USERS = {'CALLER_LIZE_001': 'Caller Lize', 'CALLER01': 'Caller 01', 'ADMIN': 'Admin'}
+# SECURE: Only authorized users known to the admin
+AUTH_USERS = {
+    'CLI-001': 'Caller 01',
+    'CLI-002': 'Caller 02',
+    'ADMIN-APEX': 'Admin'
+}
 
 @app.route('/')
 def home():
@@ -124,6 +129,12 @@ def update_lead(lead_id):
     oc = request.form.get('outcome', '')
     conn = get_db_connection()
     c = conn.cursor()
+# DIALER INTEGRATION: Placeholder to hook into a softphone provider later
+@app.route('/portal/dial/<int:lead_id>', methods=['POST'])
+def dial_lead(lead_id):
+    if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 403
+    return jsonify({'success': True, 'message': 'Dialing sequence initialized.'})
+
     c.execute('UPDATE leads SET status=?, notes=?, call_outcome=?, called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?',
               (st, nt, oc, session.get('user_id'), lead_id))
     conn.commit()
