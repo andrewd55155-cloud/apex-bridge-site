@@ -74,21 +74,21 @@
                 <td>
                     <div id="phone-box-{{ lead['id'] }}" class="phone-container {{ 'phone-called' if lead['status'] != 'UNCALLED' else 'phone-uncalled' }}">
                         {% if lead['primary_phone'] %}
-                            <div>
-                                <a href="tel:{{ lead['primary_phone'] }}" onclick="registerDial({{ lead['id'] }})" class="phone-link">📞 {{ lead['primary_phone'] }}</a> 
-                                <small>({{ lead['primary_phone_type'] or 'Primary' }})</small>
+                            <div style="margin-bottom: 4px;">
+                                <a href="#" onclick="event.preventDefault(); startCall({{ lead['id'] }}, '{{ lead['primary_phone'] }}');" class="phone-link">📞 {{ lead['primary_phone'] }}</a> 
+                                <small style="color:#64748b;">({{ lead['primary_phone_type'] or 'Primary' }})</small>
                             </div>
                         {% endif %}
                         {% if lead['mobile_1'] and lead['mobile_1'] != lead['primary_phone'] %}
-                            <div style="margin-top: 4px;">
-                                <a href="tel:{{ lead['mobile_1'] }}" onclick="registerDial({{ lead['id'] }})" class="phone-link">📞 {{ lead['mobile_1'] }}</a> 
-                                <small>(Mobile)</small>
+                            <div style="margin-bottom: 4px;">
+                                <a href="#" onclick="event.preventDefault(); startCall({{ lead['id'] }}, '{{ lead['mobile_1'] }}');" class="phone-link">📞 {{ lead['mobile_1'] }}</a> 
+                                <small style="color:#64748b;">(Mobile)</small>
                             </div>
                         {% endif %}
                         {% if lead['landline_1'] and lead['landline_1'] != lead['primary_phone'] %}
-                            <div style="margin-top: 4px;">
-                                <a href="tel:{{ lead['landline_1'] }}" onclick="registerDial({{ lead['id'] }})" class="phone-link">📞 {{ lead['landline_1'] }}</a> 
-                                <small>(Landline)</small>
+                            <div style="margin-bottom: 4px;">
+                                <a href="#" onclick="event.preventDefault(); startCall({{ lead['id'] }}, '{{ lead['landline_1'] }}');" class="phone-link">📞 {{ lead['landline_1'] }}</a> 
+                                <small style="color:#64748b;">(Landline)</small>
                             </div>
                         {% endif %}
                     </div>
@@ -116,18 +116,60 @@
         </tbody>
     </table>
 
+    <!-- Modal Popup for Computer Callers -->
+    <div id="callModal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+        <div style="background:white; padding:25px; border-radius:10px; max-width:420px; width:90%; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.3);">
+            <h3 style="margin-top:0; color:#0f172a;">Ready to Dial</h3>
+            <p id="modalPhoneDisplay" style="font-size:1.4rem; font-weight:bold; color:#16a34a; margin:15px 0;"></p>
+            <p style="font-size:0.85rem; color:#64748b; margin-bottom:20px;">
+                If your browser does not trigger your phone app automatically, dial the number above on your phone or softphone now.
+            </p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button onclick="directTelLaunch()" style="background:#2563eb; color:white; border:none; padding:10px 16px; border-radius:6px; font-weight:bold; cursor:pointer;">Open System Dialer</button>
+                <button onclick="closeModal()" style="background:#e2e8f0; color:#334155; border:none; padding:10px 16px; border-radius:6px; font-weight:bold; cursor:pointer;">Done / Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        function registerDial(id) {
+        let currentRawPhone = '';
+
+        function startCall(id, rawPhone) {
+            currentRawPhone = rawPhone;
+            const digits = rawPhone.replace(/\D/g, '');
+            const telUrl = digits.length === 10 ? 'tel:+1' + digits : 'tel:+' + digits;
+
+            // 1. Immediately visually turn to green and mark CALLED
             const phoneBox = document.getElementById('phone-box-' + id);
-            phoneBox.className = 'phone-container phone-called';
+            if (phoneBox) phoneBox.className = 'phone-container phone-called';
             
             const badge = document.getElementById('badge-' + id);
-            badge.innerText = 'CALLED';
-            badge.className = 'badge badge-CALLED';
+            if (badge) {
+                badge.innerText = 'CALLED';
+                badge.className = 'badge badge-CALLED';
+            }
 
+            // 2. Post to server to save called status
             const fd = new FormData();
             fd.append('status', 'CALLED');
             fetch('/portal/update/' + id, { method: 'POST', body: fd });
+
+            // 3. Attempt native launch
+            window.location.href = telUrl;
+
+            // 4. Also pop up friendly modal showing phone number clearly in case browser intercepts or blocks tel:
+            document.getElementById('modalPhoneDisplay').innerText = rawPhone;
+            document.getElementById('callModal').style.display = 'flex';
+        }
+
+        function directTelLaunch() {
+            const digits = currentRawPhone.replace(/\D/g, '');
+            const telUrl = digits.length === 10 ? 'tel:+1' + digits : 'tel:+' + digits;
+            window.location.href = telUrl;
+        }
+
+        function closeModal() {
+            document.getElementById('callModal').style.display = 'none';
         }
 
         function saveCall(id) {
