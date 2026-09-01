@@ -35,7 +35,11 @@ def init_db():
 
 init_db()
 
-AUTH_USERS = {'CLI-001': 'Caller 01', 'CLI-002': 'Caller 02', 'ADMIN-APEX': 'Admin'}
+AUTH_USERS = {
+    'CLI-001': {'name': 'Caller Lize (750 Dial List)', 'role': 'caller_750'},
+    'CLI-002': {'name': 'Caller 02 (Uncontacted / Unphoned)', 'role': 'caller_secondary'},
+    'ADMIN-APEX': {'name': 'Administrator (Full Access)', 'role': 'admin'}
+}
 
 @app.route('/')
 def home():
@@ -48,7 +52,8 @@ def login():
         u = request.form.get('user_id', '').strip()
         if u in AUTH_USERS:
             session['user_id'] = u
-            session['user_name'] = AUTH_USERS[u]
+            session['user_name'] = AUTH_USERS[u]['name']
+            session['role'] = AUTH_USERS[u]['role']
             return redirect(url_for('portal'))
         err = 'Unauthorized Access.'
     return render_template('login.html', error=err)
@@ -61,23 +66,42 @@ def logout():
 @app.route('/portal')
 def portal():
     if 'user_id' not in session: return redirect(url_for('login'))
+    
+    role = session.get('role', 'caller_750')
     f = request.args.get('filter', 'ALL')
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('SELECT COUNT(*) FROM leads')
+
+    # Determine Base Scope by Role
+    # CLI-001 gets all leads WITH phone numbers (~750 skip-traced calling leads)
+    # CLI-002 gets leads WITHOUT phone numbers (for direct mail / secondary skip tracing)
+    # ADMIN gets all leads
+    if role == 'caller_750':
+        base_where = "(primary_phone != '' OR mobile_1 != '' OR landline_1 != '')"
+    elif role == 'caller_secondary':
+        base_where = "(primary_phone = '' AND mobile_1 = '' AND landline_1 = '')"
+    else:
+        base_where = "1=1"
+
+    c.execute(f'SELECT COUNT(*) FROM leads WHERE {base_where}')
     tot = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM leads WHERE status != 'UNCALLED'")
+    c.execute(f"SELECT COUNT(*) FROM leads WHERE {base_where} AND status != 'UNCALLED'")
     cal = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM leads WHERE status = 'INTERESTED'")
+    c.execute(f"SELECT COUNT(*) FROM leads WHERE {base_where} AND status = 'INTERESTED'")
     inte = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM leads WHERE status = 'NOT_INTERESTED'")
+    c.execute(f"SELECT COUNT(*) FROM leads WHERE {base_where} AND status = 'NOT_INTERESTED'")
     nint = c.fetchone()[0]
     unc = tot - cal
 
-    if f == 'UNCALLED': c.execute("SELECT * FROM leads WHERE status = 'UNCALLED' ORDER BY id ASC")
-    elif f == 'CALLED': c.execute("SELECT * FROM leads WHERE status != 'UNCALLED' ORDER BY last_called_at DESC")
-    elif f == 'INTERESTED': c.execute("SELECT * FROM leads WHERE status = 'INTERESTED' ORDER BY last_called_at DESC")
-    else: c.execute("SELECT * FROM leads ORDER BY id ASC")
+    if f == 'UNCALLED':
+        c.execute(f"SELECT * FROM leads WHERE {base_where} AND status = 'UNCALLED' ORDER BY id ASC")
+    elif f == 'CALLED':
+        c.execute(f"SELECT * FROM leads WHERE {base_where} AND status != 'UNCALLED' ORDER BY last_called_at DESC")
+    elif f == 'INTERESTED':
+        c.execute(f"SELECT * FROM leads WHERE {base_where} AND status = 'INTERESTED' ORDER BY last_called_at DESC")
+    else:
+        c.execute(f"SELECT * FROM leads WHERE {base_where} ORDER BY id ASC")
+
     leads = c.fetchall()
     conn.close()
     metrics = {'total': tot, 'called': cal, 'uncalled': unc, 'interested': inte, 'not_interested': nint}
