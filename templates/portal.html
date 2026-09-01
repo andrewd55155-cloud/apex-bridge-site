@@ -1,37 +1,125 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Caller Dashboard</title>
+    <title>Apex Bridge CRM - Caller Portal</title>
     <style>
-        .called { color: green; font-weight: bold; }
-        .uncalled { color: red; }
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: #0f172a; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; }
+        .metrics { display: flex; gap: 15px; margin-bottom: 20px; }
+        .metric-box { background: white; padding: 15px; border-radius: 8px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid #3b82f6; }
+        .metric-val { font-size: 1.5rem; font-weight: bold; }
+        .metric-lbl { font-size: 0.8rem; color: #64748b; }
+        .controls { display: flex; justify-content: space-between; margin-bottom: 15px; }
+        .btn-filter { text-decoration: none; padding: 6px 12px; background: #e2e8f0; color: #334155; border-radius: 4px; font-size: 0.85rem; }
+        .btn-filter.active { background: #0284c7; color: white; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 0.85rem; }
+        th { background: #f1f5f9; }
+        .badge { padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.75rem; }
+        .badge-UNCALLED { background: #e0f2fe; color: #0369a1; }
+        .badge-CALLED { background: #fef3c7; color: #92400e; }
+        .badge-INTERESTED { background: #dcfce7; color: #166534; }
+        .phone-link { color: #2563eb; font-weight: bold; text-decoration: none; }
+        .btn-save { background: #10b981; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .input-note { width: 100%; margin-top: 4px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body>
-    <h2>Caller Dashboard</h2>
-    <table border="1">
-        <tr><th>Name</th><th>Address</th><th>Phone</th><th>Status</th><th>Action</th></tr>
-        {% for lead in leads %}
-        <tr id="lead-{{ lead[0] }}">
-            <td>{{ lead[1] }}</td>
-            <td>{{ lead[2] }}</td>
-            <td>{{ lead[3] }}</td>
-            <td id="status-{{ lead[0] }}" class="{{ 'called' if lead[4] == 'CALLED' else 'uncalled' }}">{{ lead[4] }}</td>
-            <td>
-                <button onclick="makeCall({{ lead[0] }})">Call</button>
-            </td>
-        </tr>
-        {% endfor %}
+    <div class="header">
+        <h2 style="margin:0; font-size:1.2rem;">Apex Bridge CRM - Caller Portal</h2>
+        <div>Logged in: <strong>{{ user_name }}</strong> | <a href="/portal/logout" style="color:#f87171; text-decoration:none; margin-left:10px;">Logout</a></div>
+    </div>
+
+    <div class="metrics">
+        <div class="metric-box"><div class="metric-lbl">TOTAL LEADS</div><div class="metric-val">{{ metrics.total }}</div></div>
+        <div class="metric-box" style="border-left-color:#f59e0b;"><div class="metric-lbl">REMAINING UNCALLED</div><div class="metric-val">{{ metrics.uncalled }}</div></div>
+        <div class="metric-box" style="border-left-color:#10b981;"><div class="metric-lbl">LOGGED CALLS</div><div class="metric-val">{{ metrics.called }}</div></div>
+        <div class="metric-box" style="border-left-color:#8b5cf6;"><div class="metric-lbl">INTERESTED / DEALS</div><div class="metric-val">{{ metrics.interested }}</div></div>
+    </div>
+
+    <div class="controls">
+        <div style="display:flex; gap:8px;">
+            <a href="/portal?filter=ALL" class="btn-filter {{ 'active' if current_filter == 'ALL' else '' }}">All</a>
+            <a href="/portal?filter=UNCALLED" class="btn-filter {{ 'active' if current_filter == 'UNCALLED' else '' }}">Uncalled Only</a>
+            <a href="/portal?filter=CALLED" class="btn-filter {{ 'active' if current_filter == 'CALLED' else '' }}">Logged Calls</a>
+            <a href="/portal?filter=INTERESTED" class="btn-filter {{ 'active' if current_filter == 'INTERESTED' else '' }}">Interested</a>
+        </div>
+        <input type="text" id="srch" placeholder="Search leads..." onkeyup="search()" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px; width:220px;">
+    </div>
+
+    <table id="tbl">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Owner Name</th>
+                <th>Property Address</th>
+                <th>Phone Numbers</th>
+                <th>Status</th>
+                <th style="min-width: 250px;">Log Outcome & Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lead in leads %}
+            <tr>
+                <td><strong>{{ lead['id'] }}</strong></td>
+                <td><strong>{{ lead['first_name'] }} {{ lead['last_name'] }}</strong></td>
+                <td>{{ lead['address'] }}<br><small style="color:#64748b;">{{ lead['city'] }}, {{ lead['state'] }} {{ lead['zip'] }}</small></td>
+                <td>
+                    {% if lead['primary_phone'] %}
+                        <div><a href="tel:{{ lead['primary_phone'] }}" class="phone-link">{{ lead['primary_phone'] }}</a> <small>({{ lead['primary_phone_type'] or 'Primary' }})</small></div>
+                    {% endif %}
+                    {% if lead['mobile_1'] and lead['mobile_1'] != lead['primary_phone'] %}
+                        <div><a href="tel:{{ lead['mobile_1'] }}" class="phone-link">{{ lead['mobile_1'] }}</a> <small>(Mobile)</small></div>
+                    {% endif %}
+                    {% if lead['landline_1'] and lead['landline_1'] != lead['primary_phone'] %}
+                        <div><a href="tel:{{ lead['landline_1'] }}" class="phone-link">{{ lead['landline_1'] }}</a> <small>(Landline)</small></div>
+                    {% endif %}
+                </td>
+                <td>
+                    <span id="badge-{{ lead['id'] }}" class="badge badge-{{ lead['status'] }}">{{ lead['status'] }}</span>
+                    {% if lead['last_called_at'] %}
+                        <div style="font-size:0.7rem; color:#64748b; margin-top:2px;">By: {{ lead['called_by'] }}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    <div style="display:flex; gap:6px;">
+                        <select id="sel-{{ lead['id'] }}" style="padding:4px; border:1px solid #cbd5e1; border-radius:4px; font-size:0.8rem;">
+                            <option value="CALLED" {{ 'selected' if lead['status'] == 'CALLED' else '' }}>Called / No Answer</option>
+                            <option value="INTERESTED" {{ 'selected' if lead['status'] == 'INTERESTED' else '' }}>Interested / Deal</option>
+                            <option value="NOT_INTERESTED" {{ 'selected' if lead['status'] == 'NOT_INTERESTED' else '' }}>Not Interested</option>
+                            <option value="UNCALLED" {{ 'selected' if lead['status'] == 'UNCALLED' else '' }}>Uncalled</option>
+                        </select>
+                        <button onclick="saveCall({{ lead['id'] }})" class="btn-save">Log Call</button>
+                    </div>
+                    <input type="text" id="note-{{ lead['id'] }}" class="input-note" placeholder="Call notes..." value="{{ lead['notes'] or '' }}">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
     </table>
+
     <script>
-        function makeCall(leadId) {
-            fetch(`/portal/call/${leadId}`, { method: 'POST' })
-            .then(response => {
-                if (response.ok) {
-                    document.getElementById(`status-${leadId}`).innerText = 'CALLED';
-                    document.getElementById(`status-${leadId}`).className = 'called';
-                    alert('Call initiated!');
+        function saveCall(id) {
+            const st = document.getElementById('sel-' + id).value;
+            const nt = document.getElementById('note-' + id).value;
+            const fd = new FormData();
+            fd.append('status', st);
+            fd.append('notes', nt);
+            fetch('/portal/update/' + id, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if(d.success) {
+                    const b = document.getElementById('badge-' + id);
+                    b.innerText = st;
+                    b.className = 'badge badge-' + st;
                 }
+            });
+        }
+        function search() {
+            const q = document.getElementById('srch').value.toLowerCase();
+            document.querySelectorAll('#tbl tbody tr').forEach(r => {
+                r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
             });
         }
     </script>
