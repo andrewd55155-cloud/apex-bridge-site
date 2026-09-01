@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Caller Dashboard</title>
+    <style>
+        .called { color: green; font-weight: bold; }
+        .uncalled { color: red; }
+    </style>
+</head>
+<body>
+    <h2>Caller Dashboard</h2>
+    <table border="1">
+        <tr><th>Name</th><th>Address</th><th>Phone</th><th>Status</th><th>Action</th></tr>
+        {% for lead in leads %}
+        <tr id="lead-{{ lead[0] }}">
+            <td>{{ lead[1] }}</td>
+            <td>{{ lead[2] }}</td>
+            <td>{{ lead[3] }}</td>
+            <td id="status-{{ lead[0] }}" class="{{ 'called' if lead[4] == 'CALLED' else 'uncalled' }}">{{ lead[4] }}</td>
+            <td>
+                <button onclick="makeCall({{ lead[0] }})">Call</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    <script>
+        function makeCall(leadId) {
+            fetch(`/portal/call/${leadId}`, { method: 'POST' })
+            .then(response => {
+                if (response.ok) {
+                    document.getElementById(`status-${leadId}`).innerText = 'CALLED';
+                    document.getElementById(`status-${leadId}`).className = 'called';
+                    alert('Call initiated!');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
