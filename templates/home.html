@@ -1,18 +1,177 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Apex Bridge Properties</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sell Your Missouri House Fast For Cash | Apex Bridge Properties</title>
+    <meta name="description" content="We buy houses fast for cash in Springfield, Ozarks, and across Missouri. No repairs, zero fees, and no realtor commissions. Get your fair cash offer today.">
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 50px; }
-        .nav { position: absolute; top: 10px; right: 20px; }
-        .icon { cursor: pointer; font-size: 24px; }
+        :root {
+            --primary-bg: #0f172a;
+            --secondary-bg: #1e293b;
+            --light-bg: #f8fafc;
+            --text-dark: #1e293b;
+            --text-light: #f8fafc;
+            --text-muted: #475569;
+            --accent-green: #15803d;
+            --accent-green-hover: #16a34a;
+            --border-color: #cbd5e1;
+            --font-stack: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: var(--font-stack); background-color: #ffffff; color: var(--text-dark); line-height: 1.6; }
+        .skip-link { position: absolute; top: -40px; left: 0; background: var(--accent-green); color: white; padding: 8px; z-index: 100; transition: top 0.2s; text-decoration: none; }
+        .skip-link:focus { top: 0; }
+        header { background-color: var(--primary-bg); color: var(--text-light); padding: 15px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); }
+        .logo { font-size: 1.4rem; font-weight: 800; color: var(--text-light); text-decoration: none; letter-spacing: -0.025em; }
+        .logo span { color: var(--accent-green-hover); }
+        .header-nav { display: flex; align-items: center; gap: 20px; }
+        .phone-header { color: var(--text-light); text-decoration: none; font-weight: 700; font-size: 1.1rem; display: flex; align-items: center; gap: 6px; }
+        .phone-header:hover, .phone-header:focus { color: var(--accent-green-hover); outline: 2px solid var(--accent-green-hover); outline-offset: 4px; }
+        .btn-portal-login { background-color: var(--secondary-bg); color: var(--text-light); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+        .btn-portal-login:hover, .btn-portal-login:focus { background-color: var(--accent-green); border-color: var(--accent-green); outline: 2px solid var(--accent-green-hover); outline-offset: 4px; }
     </style>
 </head>
 <body>
-    <div class="nav">
-        <a href="/portal/login" class="icon">👤</a>
-    </div>
-    <h1>Apex Bridge Properties</h1>
-    <p>We buy houses fast and easy. Contact us today!</p>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    <header>
+        <a href="/" class="logo" aria-label="Apex Bridge Properties Home">Apex Bridge <span>Properties</span></a>
+        <div class="header-nav">
+            <a href="tel:8166669735" class="phone-header" aria-label="Call Apex Bridge Properties at 816-666-9735">📞 (816) 666-9735</a>
+            <a href="/portal/login" class="btn-portal-login" aria-label="Caller Portal Login">👤 Portal Login</a>
+        </div>
+    </header>
+    <main id="main-content">
+        <!-- Hero and CTA Form -->
+        <section class="hero" aria-label="Welcome and Fair Cash Offer Request">
+            <div class="hero-container">
+                <h1 style="color: white;">Sell Your Missouri House Fast For Cash</h1>
+                <p>We buy properties in Springfield, Ozarks, and surrounding areas completely as-is. No costly repairs, zero agent commissions, and we cover all closing costs. Close on your exact schedule!</p>
+                
+                <div class="offer-form">
+                    <h2>Request Your Fair Cash Offer Today</h2>
+                    <form action="#" method="POST" onsubmit="event.preventDefault(); alert('Thank you! Andrew will review your property and contact you within 24 hours.');">
+                        <div class="form-group">
+                            <label for="prop-addr">Property Street Address (in Missouri):</label>
+                            <input type="text" id="prop-addr" placeholder="e.g. 123 Main St, Springfield" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="client-name">Your Full Name:</label>
+                            <input type="text" id="client-name" placeholder="John Doe" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="client-phone">Your Phone Number:</label>
+                            <input type="tel" id="client-phone" placeholder="(417) 555-0100" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Submit Cash Offer Request ➔</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Original Comparison Section -->
+        <section class="comparison-section" aria-label="Direct Cash Sale vs. Realtor Comparison">
+            <h2>The Smarter Way to Sell Your House</h2>
+            <p class="comparison-subtitle">Compare selling directly to Apex Bridge Properties versus listing traditionally with an agent.</p>
+            
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th scope="col">Feature</th>
+                            <th scope="col" class="highlight-col">Apex Bridge Properties (Direct Cash)</th>
+                            <th scope="col">Traditional Real Estate Agent</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row">Broker Commissions</th>
+                            <td class="highlight-col" style="color: #15803d;">0% (Keep 100% of your offer)</td>
+                            <td>6% average (Slashes your profit)</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Closing Costs Covered</th>
+                            <td class="highlight-col">Yes - We pay 100% of standard costs</td>
+                            <td>No - You pay 2% to 4% in seller costs</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Required Repair Work</th>
+                            <td class="highlight-col">Zero repairs (We buy 100% As-Is)</td>
+                            <td>High - Costly list from home inspector</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Stressful Home Showings</th>
+                            <td class="highlight-col">Zero (No open houses or cleanups)</td>
+                            <td>High - Constant strangers in your home</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Financing Failure Risk</th>
+                            <td class="highlight-col">None (Guaranteed direct cash close)</td>
+                            <td>High - Buyer bank loan can fall through</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Average Closing Speed</th>
+                            <td class="highlight-col" style="color: #15803d; font-weight: bold;">7 to 14 Days</td>
+                            <td>60 to 90+ Days average</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        <!-- Process Section -->
+        <section class="process-section" aria-label="Our Three Step Process">
+            <h2 class="section-title">Our Simple Three-Step Process</h2>
+            <div class="grid-3">
+                <div class="card">
+                    <div class="card-num">1</div>
+                    <h3>Submit Your Property</h3>
+                    <p>Provide your address and basic details. Our local team conducts a comprehensive value assessment using advanced market data.</p>
+                </div>
+                <div class="card">
+                    <div class="card-num">2</div>
+                    <h3>Get a No-Obligation Offer</h3>
+                    <p>We present a fair, transparent off-market cash offer. Zero fees or realtor commissions are deducted from your final offer.</p>
+                </div>
+                <div class="card">
+                    <div class="card-num">3</div>
+                    <h3>Choose Your Closing Date</h3>
+                    <p>We work with trusted local title companies. You choose the closing date that works best for your transition schedule.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQs Section -->
+        <section class="faq-section" aria-label="Frequently Asked Questions">
+            <div class="faq-container">
+                <h2 class="section-title">Frequently Asked Questions</h2>
+                
+                <details>
+                    <summary>Are there any hidden fees or commissions?</summary>
+                    <p>None at all. When you sell directly to Apex Bridge Properties, the offer amount we present is the exact amount you walk away with. We cover all standard closing fees, and there are no commissions.</p>
+                </details>
+
+                <details>
+                    <summary>Do I need to clean or make repairs before selling?</summary>
+                    <p>No. We buy homes completely as-is, in any physical condition. You can leave unwanted belongings, trash, or needed repairs behind, and we will handle all cleanup and structural work after closing.</p>
+                </details>
+
+                <details>
+                    <summary>Is there any obligation when I submit my address?</summary>
+                    <p>There is absolutely zero obligation. Submitting your address simply initiates our research team's valuation. If our cash offer doesn't work for your needs, you can decline it with zero questions asked.</p>
+                </details>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 Apex Bridge Properties LLC. All rights reserved.</p>
+        <p>Providing custom wholesaling, off-market acquisitions, and property solutions across Springfield and the Ozarks.</p>
+        <p style="font-size: 0.8rem; margin-top: 15px; color: #64748b;">
+            We are committed to digital accessibility. This website is designed to comply with WCAG 2.1 AA accessibility guidelines.
+        </p>
+    </footer>
+    </main>
 </body>
 </html>

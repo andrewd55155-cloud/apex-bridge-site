@@ -104,9 +104,14 @@ def portal():
         c.execute(f"SELECT * FROM leads WHERE {base_where} ORDER BY id ASC")
 
     leads = c.fetchall()
+    
+    # Query live campaign calendar events & deal progression milestones
+    c.execute("SELECT * FROM calendar_events ORDER BY event_date ASC")
+    events = [dict(row) for row in c.fetchall()]
+    
     conn.close()
     metrics = {'total': tot, 'called': cal, 'uncalled': unc, 'interested': inte, 'not_interested': nint}
-    return render_template('portal.html', leads=leads, metrics=metrics, current_filter=f, user_name=session.get('user_name', 'Caller'))
+    return render_template('portal.html', leads=leads, metrics=metrics, current_filter=f, user_name=session.get('user_name', 'Caller'), events=events)
 
 @app.route('/portal/update/<int:lead_id>', methods=['POST'])
 def update_lead(lead_id):
@@ -287,6 +292,38 @@ def api_sync_leads():
     rows = [dict(row) for row in c.fetchall()]
     conn.close()
     return jsonify({'leads': rows, 'count': len(rows)})
+
+@app.route('/api/sync-calendar', methods=['GET', 'POST'])
+def api_sync_calendar():
+    """Secure endpoint to get or push calendar events/deal progress milestones from Command Center."""
+    auth_key = request.args.get('key')
+    if auth_key != os.environ.get('SECRET_KEY', 'apex_bridge_secret_key_2026'):
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    conn = get_db_connection()
+    c = conn.cursor()
+    
+    if request.method == 'POST':
+        events = request.json.get('events', [])
+        try:
+            c.execute("DELETE FROM calendar_events")
+            for ev in events:
+                c.execute("""INSERT INTO calendar_events (title, event_type, area, deal_phase, event_date, notes, color)
+                             VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                          (ev.get('title'), ev.get('event_type'), ev.get('area'), ev.get('deal_phase'), ev.get('event_date'), ev.get('notes'), ev.get('color')))
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True, 'count': len(events)})
+        except Exception as e:
+            conn.close()
+            return jsonify({'error': str(e)}), 500
+            
+    # GET method
+    c.execute("SELECT * FROM calendar_events ORDER BY event_date ASC")
+    rows = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify({'events': rows, 'count': len(rows)})
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
