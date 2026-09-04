@@ -25,6 +25,22 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, first_name TEXT, last_name TEXT, address TEXT, city TEXT, state TEXT, zip TEXT, primary_phone TEXT, primary_phone_type TEXT, mail_address TEXT, mail_city TEXT, mail_state TEXT, mailing_zip TEXT, email_1 TEXT, email_2 TEXT, mobile_1 TEXT, mobile_2 TEXT, landline_1 TEXT, landline_2 TEXT, status TEXT DEFAULT 'UNCALLED', notes TEXT DEFAULT '', call_outcome TEXT DEFAULT '', called_by TEXT DEFAULT '', last_called_at TIMESTAMP)""")
+    
+    # Dynamic Schema Migration for missing columns in leads
+    cursor.execute("PRAGMA table_info(leads)")
+    existing_cols = {col[1] for col in cursor.fetchall()}
+    migrations = [
+        ("called_by", "TEXT DEFAULT ''"),
+        ("last_called_at", "TIMESTAMP"),
+        ("call_outcome", "TEXT DEFAULT ''")
+    ]
+    for col_name, col_def in migrations:
+        if col_name not in existing_cols:
+            try:
+                cursor.execute(f"ALTER TABLE leads ADD COLUMN {col_name} {col_def}")
+            except Exception as e:
+                print(f"Migration error for {col_name}: {e}")
+
     cursor.execute("""CREATE TABLE IF NOT EXISTS calendar_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
