@@ -25,6 +25,17 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("""CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, first_name TEXT, last_name TEXT, address TEXT, city TEXT, state TEXT, zip TEXT, primary_phone TEXT, primary_phone_type TEXT, mail_address TEXT, mail_city TEXT, mail_state TEXT, mailing_zip TEXT, email_1 TEXT, email_2 TEXT, mobile_1 TEXT, mobile_2 TEXT, landline_1 TEXT, landline_2 TEXT, status TEXT DEFAULT 'UNCALLED', notes TEXT DEFAULT '', call_outcome TEXT DEFAULT '', called_by TEXT DEFAULT '', last_called_at TIMESTAMP)""")
+    cursor.execute("""CREATE TABLE IF NOT EXISTS calendar_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        area TEXT,
+        deal_phase TEXT,
+        event_date DATE NOT NULL,
+        notes TEXT,
+        color TEXT,
+        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
     conn.commit()
     cursor.execute('SELECT COUNT(*) FROM leads')
     if cursor.fetchone()[0] == 0 and os.path.exists(CSV_PATH):
