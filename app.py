@@ -50,13 +50,13 @@ def home():
 def login():
     err = None
     if request.method == 'POST':
-        u = request.form.get('user_id', '').strip()
+        u = request.form.get('user_id', '').strip().upper()
         if u in AUTH_USERS:
             session['user_id'] = u
             session['user_name'] = AUTH_USERS[u]['name']
             session['role'] = AUTH_USERS[u]['role']
             return redirect(url_for('portal'))
-        err = 'Unauthorized Access.'
+        err = 'Unauthorized Access. Please enter a valid User ID.'
     return render_template('login.html', error=err)
 
 @app.route('/portal/logout')
