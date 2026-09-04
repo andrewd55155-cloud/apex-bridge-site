@@ -70,7 +70,14 @@
             <tr id="row-{{ lead['id'] }}">
                 <td><strong>{{ lead['id'] }}</strong></td>
                 <td><strong>{{ lead['first_name'] }} {{ lead['last_name'] }}</strong></td>
-                <td>{{ lead['address'] }}<br><small style="color:#64748b;">{{ lead['city'] }}, {{ lead['state'] }} {{ lead['zip'] }}</small></td>
+                <td>
+                    <strong>{{ lead['address'] }}</strong><br>
+                    <small style="color:#64748b;">{{ lead['city'] }}, {{ lead['state'] }} {{ lead['zip'] }}</small>
+                    <div style="margin-top:5px; display:flex; gap:8px;">
+                        <a href="https://earth.google.com/web/search/{{ lead['address'] }} {{ lead['city'] }} {{ lead['state'] }}" target="_blank" style="font-size:0.75rem; color:#2563eb; text-decoration:none; font-weight:600;">🌍 Google Earth</a>
+                        <a href="https://www.google.com/maps/search/?api=1&query={{ lead['address'] }} {{ lead['city'] }} {{ lead['state'] }} {{ lead['zip'] }}" target="_blank" style="font-size:0.75rem; color:#475569; text-decoration:none; font-weight:600;">🗺️ Street View</a>
+                    </div>
+                </td>
                 <td>
                     <div id="phone-box-{{ lead['id'] }}" class="phone-container {{ 'phone-called' if lead['status'] != 'UNCALLED' else 'phone-uncalled' }}">
                         {% if lead['primary_phone'] %}
@@ -107,7 +114,8 @@
                             <option value="NOT_INTERESTED" {{ 'selected' if lead['status'] == 'NOT_INTERESTED' else '' }}>Not Interested</option>
                             <option value="UNCALLED" {{ 'selected' if lead['status'] == 'UNCALLED' else '' }}>Reset to Uncalled</option>
                         </select>
-                        <button onclick="saveCall({{ lead['id'] }})" class="btn-save">Log Call & Save Notes</button>
+                        <button onclick="saveCall({{ lead['id'] }})" class="btn-save">Log Call & Save</button>
+                        <button onclick="dropVoicemail({{ lead['id'] }})" title="Drop Authentic Voice Audio" style="background:#8b5cf6; color:white; border:none; padding:6px 10px; border-radius:4px; cursor:pointer; font-weight:bold; font-size:0.8rem;">🎙️ Drop VM</button>
                     </div>
                     <input type="text" id="note-{{ lead['id'] }}" class="input-note" placeholder="Type call notes here..." value="{{ lead['notes'] or '' }}">
                 </td>
@@ -170,6 +178,27 @@
 
         function closeModal() {
             document.getElementById('callModal').style.display = 'none';
+        }
+
+        function dropVoicemail(id) {
+            if (!confirm('Trigger authentic voicemail drop to this lead now?')) return;
+            fetch('/portal/drop-voicemail/' + id, { method: 'POST' })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    const b = document.getElementById('badge-' + id);
+                    if (b) {
+                        b.innerText = 'CALLED';
+                        b.className = 'badge badge-CALLED';
+                    }
+                    const phoneBox = document.getElementById('phone-box-' + id);
+                    if (phoneBox) phoneBox.className = 'phone-container phone-called';
+                    alert(d.message || 'Voicemail drop dispatched successfully!');
+                } else {
+                    alert('Voicemail drop error: ' + (d.error || 'Failed'));
+                }
+            })
+            .catch(err => alert('Request failed: ' + err));
         }
 
         function saveCall(id) {

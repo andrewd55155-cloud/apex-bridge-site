@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, url_for, jsonify
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify, Response, send_file
 import pandas as pd
 import sqlite3
 import os
@@ -10,7 +10,8 @@ app.jinja_env.globals.update(enumerate=enumerate)
 
 TWILIO_SID = os.environ.get('TWILIO_ACCOUNT_SID')
 TWILIO_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
-TWILIO_FROM = os.environ.get('TWILIO_FROM_NUMBER')
+TWILIO_FROM = os.environ.get('TWILIO_FROM_NUMBER', '+18166669735')
+FORWARD_PHONE = os.environ.get('FORWARD_PHONE', '+18649139408')
 
 DB_PATH = 'crm_leads.db'
 CSV_PATH = 'combined_leads.csv'
@@ -131,6 +132,161 @@ def dial_lead(lead_id):
         # client.calls.create(to=lead['primary_phone'], from_=TWILIO_FROM, url='http://demo.twilio.com/docs/voice.xml')
         return jsonify({'success': True, 'message': 'Dialing triggered'})
     return jsonify({'error': 'Config error'}), 500
+
+# ==============================================================================
+# VOICE & VOICEMAIL INFRASTRUCTURE ENDPOINTS
+# ==============================================================================
+
+@app.route('/voice/audio')
+def voice_audio():
+    """Serves authentic human voicemail audio payload with proper MIME headers."""
+    audio_path = os.path.join(app.root_path, 'static', 'audio', 'voicemail.m4a')
+    if os.path.exists(audio_path):
+        return send_file(audio_path, mimetype='audio/mp4')
+    fallback = os.path.join(app.root_path, 'static', 'audio', 'voicemail.mp3')
+    return send_file(fallback, mimetype='audio/mp4')
+
+@app.route('/voice/inbound', methods=['GET', 'POST'])
+def voice_inbound():
+    """
+    Twilio Voice Webhook for Inbound Calls to +1 (816) 666-9735:
+    1. Forwards call directly to Andrew (+1 864-913-9408) with 20 second timeout.
+    2. If unanswered or busy, plays authentic human voicemail and records caller's message.
+    """
+    base_url = request.url_root.rstrip('/')
+    audio_url = f"{base_url}/voice/audio"
+    dial_action = f"{base_url}/voice/dial-status"
+    record_action = f"{base_url}/voice/recorded"
+
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Dial timeout="20" action="{dial_action}" callerId="{TWILIO_FROM}">
+        {FORWARD_PHONE}
+    </Dial>
+    <Play>{audio_url}</Play>
+    <Record maxLength="120" action="{record_action}" transcribe="true"/>
+    <Hangup/>
+</Response>"""
+    return Response(twiml, mimetype='text/xml')
+
+@app.route('/voice/dial-status', methods=['GET', 'POST'])
+def voice_dial_status():
+    """Fallback if dialed phone is busy or unanswered: drop voicemail & record."""
+    status = request.values.get('DialCallStatus', '')
+    if status == 'completed':
+        return Response('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>', mimetype='text/xml')
+
+    base_url = request.url_root.rstrip('/')
+    audio_url = f"{base_url}/voice/audio"
+    record_action = f"{base_url}/voice/recorded"
+
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Play>{audio_url}</Play>
+    <Record maxLength="120" action="{record_action}" transcribe="true"/>
+    <Hangup/>
+</Response>"""
+    return Response(twiml, mimetype='text/xml')
+
+@app.route('/voice/voicemail-drop', methods=['GET', 'POST'])
+def voicemail_drop_twiml():
+    """TwiML for automated ringless voicemail / voicemail drop payload."""
+    audio_url = f"{request.url_root.rstrip('/')}/voice/audio"
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Play>{audio_url}</Play>
+    <Hangup/>
+</Response>"""
+    return Response(twiml, mimetype='text/xml')
+
+@app.route('/voice/recorded', methods=['POST'])
+def voice_recorded():
+    """Webhook to capture incoming voicemails left on +1 (816) 666-9735."""
+    caller = request.values.get('From', 'Unknown')
+    recording_url = request.values.get('RecordingUrl', '')
+    duration = request.values.get('RecordingDuration', '')
+    digits = ''.join(filter(str.isdigit, caller))[-10:]
+
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        note = f"\n[INBOUND VOICEMAIL] From {caller} ({duration}s): {recording_url}"
+        c.execute("UPDATE leads SET status='INTERESTED', notes=notes || ?, call_outcome='Voicemail Received', last_called_at=CURRENT_TIMESTAMP WHERE primary_phone LIKE ? OR mobile_1 LIKE ?", (note, f"%{digits}%", f"%{digits}%"))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error saving inbound voicemail: {e}")
+
+    twiml = '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thank you for reaching Apex Bridge Properties. We have received your message and will get back to you shortly.</Say><Hangup/></Response>'
+    return Response(twiml, mimetype='text/xml')
+
+@app.route('/portal/drop-voicemail/<int:lead_id>', methods=['POST'])
+def drop_voicemail(lead_id):
+    """Triggers an instant authentic Voicemail Drop to the lead's phone via Twilio."""
+    if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 403
+    conn = get_db_connection()
+    lead = conn.execute('SELECT * FROM leads WHERE id = ?', (lead_id,)).fetchone()
+    if not lead:
+        conn.close()
+        return jsonify({'error': 'Lead not found'}), 404
+
+    raw_phone = lead['primary_phone'] or lead['mobile_1'] or lead['landline_1']
+    if not raw_phone:
+        conn.close()
+        return jsonify({'error': 'No phone number on file for this lead'}), 400
+
+    digits = ''.join(filter(str.isdigit, str(raw_phone)))
+    if len(digits) == 10:
+        to_phone = '+1' + digits
+    elif len(digits) == 11 and digits.startswith('1'):
+        to_phone = '+' + digits
+    else:
+        to_phone = raw_phone
+
+    called_by = session.get('user_id', 'Caller')
+    vm_twiml_url = f"{request.url_root.rstrip('/')}/voice/voicemail-drop"
+    note_entry = f"\n[Voicemail Dropped by {called_by}] Authentic audio dispatched to {to_phone}"
+
+    if TWILIO_SID and TWILIO_TOKEN:
+        try:
+            client = Client(TWILIO_SID, TWILIO_TOKEN)
+            call = client.calls.create(
+                to=to_phone,
+                from_=TWILIO_FROM,
+                url=vm_twiml_url,
+                machine_detection='DetectMessageEnd'
+            )
+            c = conn.cursor()
+            c.execute("UPDATE leads SET status='CALLED', notes=notes || ?, call_outcome='Voicemail Dropped', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (note_entry, called_by, lead_id))
+            conn.commit()
+            conn.close()
+            return jsonify({'success': True, 'call_sid': call.sid, 'status': 'Voicemail Dropped'})
+        except Exception as e:
+            conn.close()
+            return jsonify({'error': str(e)}), 500
+    else:
+        c = conn.cursor()
+        c.execute("UPDATE leads SET status='CALLED', notes=notes || ?, call_outcome='Voicemail Staged', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (note_entry, called_by, lead_id))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'dry_run': True, 'message': f'Voicemail staged for {to_phone}'})
+
+# ==============================================================================
+# PIPELINE SYNC API FOR COMMAND CENTER
+# ==============================================================================
+
+@app.route('/api/sync-leads', methods=['GET'])
+def api_sync_leads():
+    """Secure API endpoint for desktop Command Center to sync live caller activity."""
+    auth_key = request.args.get('key')
+    if auth_key != os.environ.get('SECRET_KEY', 'apex_bridge_secret_key_2026'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT id, address, city, state, zip, primary_phone, status, notes, call_outcome, called_by, last_called_at FROM leads WHERE status != 'UNCALLED' OR notes != ''")
+    rows = [dict(row) for row in c.fetchall()]
+    conn.close()
+    return jsonify({'leads': rows, 'count': len(rows)})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
