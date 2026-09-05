@@ -148,7 +148,7 @@ def update_lead(lead_id):
     oc = request.form.get('outcome', '')
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('UPDATE leads SET status=?, notes=?, call_outcome=?, called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?', (st, nt, oc, session.get('user_id'), lead_id))
+    c.execute('UPDATE leads SET status=?, notes=notes || char(10) || ?, call_outcome=?, called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?', (st, nt, oc, session.get('user_id'), lead_id))
     conn.commit()
     conn.close()
     return jsonify({'success': True, 'lead_id': lead_id, 'status': st})
@@ -254,6 +254,8 @@ def voice_recorded():
 
 @app.route('/portal/drop-voicemail/<int:lead_id>', methods=['POST'])
 def drop_voicemail(lead_id):
+    st = request.form.get('status', 'CALLED')
+    nt = request.form.get('notes', '')
     """Triggers an instant authentic Voicemail Drop to the lead's phone via Twilio."""
     if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 403
     conn = get_db_connection()
@@ -289,7 +291,7 @@ def drop_voicemail(lead_id):
                 machine_detection='DetectMessageEnd'
             )
             c = conn.cursor()
-            c.execute("UPDATE leads SET status='CALLED', notes=notes || ?, call_outcome='Voicemail Dropped', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (note_entry, called_by, lead_id))
+            c.execute("UPDATE leads SET status=?, notes=notes || char(10) || ? || ?, call_outcome='Voicemail Dropped', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (st, nt, note_entry, called_by, lead_id))
             conn.commit()
             conn.close()
             return jsonify({'success': True, 'call_sid': call.sid, 'status': 'Voicemail Dropped'})
@@ -298,7 +300,7 @@ def drop_voicemail(lead_id):
             return jsonify({'error': str(e)}), 500
     else:
         c = conn.cursor()
-        c.execute("UPDATE leads SET status='CALLED', notes=notes || ?, call_outcome='Voicemail Staged', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (note_entry, called_by, lead_id))
+        c.execute("UPDATE leads SET status=?, notes=notes || char(10) || ? || ?, call_outcome='Voicemail Staged', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (st, nt, note_entry, called_by, lead_id))
         conn.commit()
         conn.close()
         return jsonify({'success': True, 'dry_run': True, 'message': f'Voicemail staged for {to_phone}'})

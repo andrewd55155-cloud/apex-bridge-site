@@ -218,8 +218,17 @@
         }
 
         function dropVoicemail(id) {
+            const status = document.getElementById('sel-' + id).value;
+            const notes = document.getElementById('note-' + id).value;
+            
             if (!confirm('Trigger authentic voicemail drop to this lead now?')) return;
-            fetch('/portal/drop-voicemail/' + id, { method: 'POST' })
+            
+            const fd = new FormData();
+            fd.append('status', status);
+            fd.append('notes', notes);
+            fd.append('outcome', 'Voicemail Dropped');
+
+            fetch('/portal/drop-voicemail/' + id, { method: 'POST', body: fd })
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
