@@ -82,11 +82,17 @@
     </div>
 
     <div class="controls">
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <a href="/portal?filter=ALL" class="btn-filter {{ 'active' if current_filter == 'ALL' else '' }}">All</a>
             <a href="/portal?filter=UNCALLED" class="btn-filter {{ 'active' if current_filter == 'UNCALLED' else '' }}">Uncalled Only</a>
             <a href="/portal?filter=CALLED" class="btn-filter {{ 'active' if current_filter == 'CALLED' else '' }}">Logged Calls</a>
             <a href="/portal?filter=INTERESTED" class="btn-filter {{ 'active' if current_filter == 'INTERESTED' else '' }}">Interested</a>
+            
+            <!-- Styled Auto Voicemail Drop Toggle Switch -->
+            <label style="display:inline-flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:700; cursor:pointer; user-select:none; background:#f0fdf4; color:#166534; padding:6px 12px; border-radius:4px; border:1px solid #bbf7d0; margin-left:10px;">
+                <input type="checkbox" id="autoVmToggle" checked style="cursor:pointer; accent-color:#16a34a; width:15px; height:15px;">
+                🎙️ Auto Voicemail Drop on "No Answer"
+            </label>
         </div>
         <input type="text" id="srch" placeholder="Search leads..." onkeyup="search()" style="padding:6px; border:1px solid #cbd5e1; border-radius:4px; width:220px;">
     </div>
@@ -194,9 +200,13 @@
                 badge.className = 'badge badge-CALLED';
             }
 
-            // 2. Post to server to save called status
+            // 2. Post to server to save called status and currently typed notes so they are not lost
             const fd = new FormData();
             fd.append('status', 'CALLED');
+            const notesInput = document.getElementById('note-' + id);
+            if (notesInput) {
+                fd.append('notes', notesInput.value);
+            }
             fetch('/portal/update/' + id, { method: 'POST', body: fd });
 
             // 3. Attempt native launch
@@ -217,11 +227,11 @@
             document.getElementById('callModal').style.display = 'none';
         }
 
-        function dropVoicemail(id) {
+        function dropVoicemail(id, silent = false) {
             const status = document.getElementById('sel-' + id).value;
             const notes = document.getElementById('note-' + id).value;
             
-            if (!confirm('Trigger authentic voicemail drop to this lead now?')) return;
+            if (!silent && !confirm('Trigger authentic voicemail drop to this lead now?')) return;
             
             const fd = new FormData();
             fd.append('status', status);
@@ -239,7 +249,12 @@
                     }
                     const phoneBox = document.getElementById('phone-box-' + id);
                     if (phoneBox) phoneBox.className = 'phone-container phone-called';
-                    alert(d.message || 'Voicemail drop dispatched successfully!');
+                    
+                    if (silent) {
+                        alert('Voicemail drop triggered automatically in the background for this unpicked call!');
+                    } else {
+                        alert(d.message || 'Voicemail drop dispatched successfully!');
+                    }
                 } else {
                     alert('Voicemail drop error: ' + (d.error || 'Failed'));
                 }
@@ -250,6 +265,14 @@
         function saveCall(id) {
             const st = document.getElementById('sel-' + id).value;
             const nt = document.getElementById('note-' + id).value;
+            
+            // Check for Auto-Voicemail Drop if marking as Called (No Answer)
+            const autoVmChecked = document.getElementById('autoVmToggle') && document.getElementById('autoVmToggle').checked;
+            if (st === 'CALLED' && autoVmChecked) {
+                dropVoicemail(id, true);
+                return;
+            }
+
             const fd = new FormData();
             fd.append('status', st);
             fd.append('notes', nt);

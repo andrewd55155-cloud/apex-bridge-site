@@ -143,15 +143,38 @@ def portal():
 @app.route('/portal/update/<int:lead_id>', methods=['POST'])
 def update_lead(lead_id):
     if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 403
-    st = request.form.get('status', 'CALLED')
-    nt = request.form.get('notes', '')
-    oc = request.form.get('outcome', '')
+    st = request.form.get('status')
+    nt = request.form.get('notes')
+    oc = request.form.get('outcome')
+    
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('UPDATE leads SET status=?, notes=notes || char(10) || ?, call_outcome=?, called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?', (st, nt, oc, session.get('user_id'), lead_id))
-    conn.commit()
+    
+    updates = []
+    params = []
+    
+    if st is not None:
+        updates.append("status = ?")
+        params.append(st)
+    if nt is not None:
+        updates.append("notes = ?")
+        params.append(nt)
+    if oc is not None:
+        updates.append("call_outcome = ?")
+        params.append(oc)
+        
+    updates.append("called_by = ?")
+    params.append(session.get('user_id', 'Caller'))
+    updates.append("last_called_at = CURRENT_TIMESTAMP")
+    
+    if updates:
+        query = f"UPDATE leads SET {', '.join(updates)} WHERE id = ?"
+        params.append(lead_id)
+        c.execute(query, tuple(params))
+        conn.commit()
+        
     conn.close()
-    return jsonify({'success': True, 'lead_id': lead_id, 'status': st})
+    return jsonify({'success': True, 'lead_id': lead_id, 'status': st or 'CALLED'})
 
 @app.route('/portal/dial/<int:lead_id>', methods=['POST'])
 def dial_lead(lead_id):
@@ -280,6 +303,7 @@ def drop_voicemail(lead_id):
     called_by = session.get('user_id', 'Caller')
     vm_twiml_url = f"{request.url_root.rstrip('/')}/voice/voicemail-drop"
     note_entry = f"\n[Voicemail Dropped by {called_by}] Authentic audio dispatched to {to_phone}"
+    full_notes = nt + note_entry if nt else note_entry
 
     if TWILIO_SID and TWILIO_TOKEN:
         try:
@@ -291,7 +315,7 @@ def drop_voicemail(lead_id):
                 machine_detection='DetectMessageEnd'
             )
             c = conn.cursor()
-            c.execute("UPDATE leads SET status=?, notes=notes || char(10) || ? || ?, call_outcome='Voicemail Dropped', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (st, nt, note_entry, called_by, lead_id))
+            c.execute("UPDATE leads SET status=?, notes=?, call_outcome='Voicemail Dropped', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (st, full_notes, called_by, lead_id))
             conn.commit()
             conn.close()
             return jsonify({'success': True, 'call_sid': call.sid, 'status': 'Voicemail Dropped'})
@@ -300,7 +324,7 @@ def drop_voicemail(lead_id):
             return jsonify({'error': str(e)}), 500
     else:
         c = conn.cursor()
-        c.execute("UPDATE leads SET status=?, notes=notes || char(10) || ? || ?, call_outcome='Voicemail Staged', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (st, nt, note_entry, called_by, lead_id))
+        c.execute("UPDATE leads SET status=?, notes=?, call_outcome='Voicemail Staged', called_by=?, last_called_at=CURRENT_TIMESTAMP WHERE id=?", (st, full_notes, called_by, lead_id))
         conn.commit()
         conn.close()
         return jsonify({'success': True, 'dry_run': True, 'message': f'Voicemail staged for {to_phone}'})
