@@ -1,4 +1,7 @@
-import load_env_patch
+try:
+    import load_env_patch
+except ImportError:
+    pass
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify, Response, send_file
 import pandas as pd
 import sqlite3
