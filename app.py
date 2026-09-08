@@ -1,3 +1,4 @@
+import load_env_patch
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify, Response, send_file
 import pandas as pd
 import sqlite3
@@ -229,12 +230,15 @@ def dial_lead(lead_id):
 
 @app.route('/voice/audio')
 def voice_audio():
-    """Serves authentic human voicemail audio payload with proper MIME headers."""
+    """Serves authentic human voicemail audio payload with proper telephony MIME headers."""
+    mp3_path = os.path.join(app.root_path, 'static', 'audio', 'voicemail.mp3')
+    if os.path.exists(mp3_path):
+        return send_file(mp3_path, mimetype='audio/mpeg')
+    wav_path = os.path.join(app.root_path, 'static', 'audio', 'voicemail.wav')
+    if os.path.exists(wav_path):
+        return send_file(wav_path, mimetype='audio/wav')
     audio_path = os.path.join(app.root_path, 'static', 'audio', 'voicemail.m4a')
-    if os.path.exists(audio_path):
-        return send_file(audio_path, mimetype='audio/mp4')
-    fallback = os.path.join(app.root_path, 'static', 'audio', 'voicemail.mp3')
-    return send_file(fallback, mimetype='audio/mp4')
+    return send_file(audio_path, mimetype='audio/mp4')
 
 @app.route('/voice/inbound', methods=['GET', 'POST'])
 def voice_inbound():
