@@ -34,7 +34,11 @@
 <body>
     <div class="header">
         <h2 style="margin:0; font-size:1.2rem;">Apex Bridge CRM - Caller Portal</h2>
-        <div>Logged in: <strong>{{ user_name }}</strong> | <a href="/portal/logout" style="color:#f87171; text-decoration:none; margin-left:10px;">Logout</a></div>
+        <div>
+            Logged in: <strong>{{ user_name }}</strong> | 
+            <button onclick="undoLastAction()" style="background:#475569; color:white; border:none; padding:4px 10px; border-radius:4px; font-size:0.75rem; cursor:pointer; font-weight:700; margin-left:10px;" title="Revert last saved status or notes change">↩️ Undo Last Action</button> | 
+            <a href="/portal/logout" style="color:#f87171; text-decoration:none; margin-left:10px; font-weight:700;">Logout</a>
+        </div>
     </div>
 
     <div class="metrics">
@@ -301,6 +305,20 @@
             document.querySelectorAll('#tbl tbody tr').forEach(r => {
                 r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
             });
+        }
+
+        function undoLastAction() {
+            fetch('/portal/undo', { method: 'POST' })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    alert('Successfully reverted last change!');
+                    location.reload();
+                } else {
+                    alert(d.message || 'Nothing to undo.');
+                }
+            })
+            .catch(err => alert('Request failed: ' + err));
         }
     </script>
 </body>

@@ -52,6 +52,14 @@ def init_db():
         color TEXT,
         last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    cursor.execute("""CREATE TABLE IF NOT EXISTS lead_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lead_id INTEGER,
+        prev_status TEXT,
+        prev_notes TEXT,
+        prev_outcome TEXT,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
     conn.commit()
     cursor.execute('SELECT COUNT(*) FROM leads')
     if cursor.fetchone()[0] == 0 and os.path.exists(CSV_PATH):
@@ -150,6 +158,12 @@ def update_lead(lead_id):
     conn = get_db_connection()
     c = conn.cursor()
     
+    # Snapshot the current state for Undo history
+    lead = c.execute('SELECT status, notes, call_outcome FROM leads WHERE id = ?', (lead_id,)).fetchone()
+    if lead:
+        c.execute('INSERT INTO lead_history (lead_id, prev_status, prev_notes, prev_outcome) VALUES (?, ?, ?, ?)',
+                  (lead_id, lead['status'], lead['notes'], lead['call_outcome']))
+    
     updates = []
     params = []
     
@@ -175,6 +189,27 @@ def update_lead(lead_id):
         
     conn.close()
     return jsonify({'success': True, 'lead_id': lead_id, 'status': st or 'CALLED'})
+
+@app.route('/portal/undo', methods=['POST'])
+def undo_last_update():
+    if 'user_id' not in session: return jsonify({'error': 'Unauthorized'}), 403
+    conn = get_db_connection()
+    c = conn.cursor()
+    # Pull the last snapshot recorded
+    c.execute('SELECT id, lead_id, prev_status, prev_notes, prev_outcome FROM lead_history ORDER BY id DESC LIMIT 1')
+    row = c.fetchone()
+    if row:
+        hist_id, lead_id, prev_status, prev_notes, prev_outcome = row
+        # Revert state
+        c.execute('UPDATE leads SET status = ?, notes = ?, call_outcome = ? WHERE id = ?',
+                  (prev_status, prev_notes, prev_outcome, lead_id))
+        # Clear this snapshot
+        c.execute('DELETE FROM lead_history WHERE id = ?', (hist_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'lead_id': lead_id, 'status': prev_status, 'notes': prev_notes})
+    conn.close()
+    return jsonify({'success': False, 'message': 'No actions left to undo.'})
 
 @app.route('/portal/dial/<int:lead_id>', methods=['POST'])
 def dial_lead(lead_id):
