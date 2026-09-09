@@ -229,7 +229,7 @@ def dial_lead(lead_id):
     conn = get_db_connection()
     lead = conn.execute('SELECT primary_phone FROM leads WHERE id = ?', (lead_id,)).fetchone()
     conn.close()
-    if lead and TWILIO_SID and TWILIO_TOKEN:
+    if lead and TWILIO_SID and TWILIO_TOKEN and os.environ.get("SAFETY_STOP") != "TRUE":
         client = Client(TWILIO_SID, TWILIO_TOKEN)
         # client.calls.create(to=lead['primary_phone'], from_=TWILIO_FROM, url='http://demo.twilio.com/docs/voice.xml')
         return jsonify({'success': True, 'message': 'Dialing triggered'})
