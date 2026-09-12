@@ -395,6 +395,41 @@ def api_sync_leads():
     rows = [dict(row) for row in c.fetchall()]
     conn.close()
     return jsonify({'leads': rows, 'count': len(rows)})
+@app.route('/api/push-leads', methods=['POST'])
+def api_push_leads():
+    """Secure endpoint to push notes and call statuses from master database to live website CRM."""
+    auth_key = request.args.get('key')
+    if auth_key != os.environ.get('SECRET_KEY', 'apex_bridge_secret_key_2026'):
+        return jsonify({'error': 'Unauthorized'}), 401
+    leads = request.json.get('leads', [])
+    conn = get_db_connection()
+    c = conn.cursor()
+    updated = 0
+    for lead in leads:
+        c.execute("""
+            UPDATE leads 
+            SET status = COALESCE(?, status),
+                notes = COALESCE(?, notes),
+                call_outcome = COALESCE(?, call_outcome),
+                called_by = COALESCE(?, called_by),
+                last_called_at = COALESCE(?, last_called_at)
+            WHERE id = ? OR UPPER(address) = ?
+        """, (
+            lead.get('status'),
+            lead.get('notes'),
+            lead.get('call_outcome'),
+            lead.get('called_by'),
+            lead.get('last_called_at'),
+            lead.get('id'),
+            str(lead.get('address', '')).upper().strip()
+        ))
+        if c.rowcount > 0:
+            updated += 1
+    conn.commit()
+    conn.close()
+    return jsonify({'success': True, 'updated': updated})
+
+
 
 @app.route('/api/sync-calendar', methods=['GET', 'POST'])
 def api_sync_calendar():
