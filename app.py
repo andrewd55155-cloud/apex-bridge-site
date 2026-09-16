@@ -255,9 +255,29 @@ def voice_audio():
 def voice_inbound():
     """
     Twilio Voice Webhook for Inbound Calls to +1 (816) 666-9735:
-    1. Forwards call directly to Andrew (+1 864-913-9408) with 20 second timeout.
-    2. If unanswered or busy, plays authentic human voicemail and records caller's message.
+    1. If Andrew calls from personal phone (+1 864-913-9408), activates Outbound Bridge to dial leads with business Caller ID.
+    2. If a lead calls in, forwards directly to Andrew's phone with 20 second timeout.
+    3. If unanswered or busy, plays authentic human voicemail and records caller's message.
     """
+    caller = request.values.get('From', '')
+    clean_caller = re.sub(r'\D', '', caller)
+    clean_forward = re.sub(r'\D', '', FORWARD_PHONE)
+
+    # Detect if call is from Andrew's personal mobile
+    if clean_caller and clean_caller.endswith(clean_forward[-10:]):
+        base_url = request.url_root.rstrip('/')
+        gather_url = f"{base_url}/voice/bridge-dial"
+        twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Gather numDigits="10" action="{gather_url}" method="POST" finishOnKey="#">
+        <Say>Hello Andrew. Enter the 10 digit number you want to call, followed by pound.</Say>
+    </Gather>
+    <Say>No number was entered. Goodbye.</Say>
+    <Hangup/>
+</Response>"""
+        return Response(twiml, mimetype='text/xml')
+
+    # Inbound call from a lead: forward to Andrew's mobile
     base_url = request.url_root.rstrip('/')
     audio_url = f"{base_url}/voice/audio"
     dial_action = f"{base_url}/voice/dial-status"
@@ -273,6 +293,28 @@ def voice_inbound():
     <Hangup/>
 </Response>"""
     return Response(twiml, mimetype='text/xml')
+
+@app.route('/voice/bridge-dial', methods=['GET', 'POST'])
+def voice_bridge_dial():
+    """Bridges call from Andrew's mobile to any lead, masking outbound Caller ID as the official business number."""
+    digits = request.values.get('Digits', '')
+    digits = re.sub(r'\D', '', str(digits))
+    if len(digits) == 10:
+        target = f"+1{digits}"
+    elif len(digits) == 11 and digits.startswith('1'):
+        target = f"+{digits}"
+    else:
+        return Response('<?xml version="1.0" encoding="UTF-8"?><Response><Say>Invalid phone number entered. Goodbye.</Say><Hangup/></Response>', mimetype='text/xml')
+
+    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say>Connecting to your lead now.</Say>
+    <Dial callerId="{TWILIO_FROM}">
+        {target}
+    </Dial>
+</Response>"""
+    return Response(twiml, mimetype='text/xml')
+
 
 @app.route('/voice/dial-status', methods=['GET', 'POST'])
 def voice_dial_status():
