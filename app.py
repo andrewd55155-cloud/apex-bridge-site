@@ -3,6 +3,8 @@ try:
 except ImportError:
     pass
 from flask import Flask, render_template, request, session, redirect, url_for, jsonify, Response, send_file
+import re
+
 import pandas as pd
 import sqlite3
 import os
